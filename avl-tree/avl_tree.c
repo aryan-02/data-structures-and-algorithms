@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <assert.h>
 #define INDENT_STEP 4
 
 typedef struct NODE
@@ -87,7 +89,72 @@ void insert(NODE **root, int value)
     }
 }
 
+/*
 
+        x                                         y
+      /   \            Left rotate on x         /   \         
+    alpha  y           ------------------>     x   gamma
+         /   \                               /   \
+       beta  gamma                       alpha   beta
+*/
+void leftRotate(NODE **root)
+{
+    if((*root) -> right == NULL)
+    {
+        return; // Can't left-rotate if no right child
+    }
+    else
+    {
+        NODE *x = *root;
+        NODE *parentOfRoot = x -> parent;
+        NODE *y = x -> right;
+        NODE *beta = y -> left;
+
+        *root = y;
+        y -> left = x;
+        x -> right = beta;
+
+        // Fix parent pointers
+        if(beta != NULL)
+            beta -> parent = x;
+        x -> parent = y;
+        (*root) -> parent = parentOfRoot;
+
+    }
+}
+
+/*
+
+             y                                           x
+           /   \                                       /   \
+         x    gamma     Right rotate on y          alpha    y
+       /   \           ------------------>                /   \
+   alpha   beta                                        beta   gamma
+
+*/
+void rightRotate(NODE **root)
+{
+    if((*root) -> left == NULL)
+    {
+        return; // Can't right-rotate if no left child
+    }
+    NODE *y = *root;
+    NODE *parentOfRoot = y -> parent;
+    NODE *x = y -> left;
+    NODE *beta = x -> right;
+
+    *root = x;
+    x -> right = y;
+    y -> left = beta;
+
+    // Fix parent pointers
+    if(beta != NULL)
+    {
+        beta -> parent = y;
+    }
+    y -> parent = x;
+    (*root) -> parent = parentOfRoot;
+}
 
 void inOrderTraversal(NODE *root)
 {
@@ -99,8 +166,23 @@ void inOrderTraversal(NODE *root)
     }
 }
 
+bool validateParents(NODE *root)
+{
+    if(root == NULL)
+        return true;
+    if(root -> left != NULL && root -> left -> parent != root)
+        return false;
+    if(root -> right != NULL && root -> right -> parent != root)
+        return false;
+    
+    if(! validateParents(root -> left) || ! validateParents(root -> right))
+        return false;
+    return true;
+    
+}
+
 // Recursive function to print tree sideways
-void printTree(NODE* root, int indent) 
+void printTree(NODE *root, int indent) 
 {
     if (root == NULL)
         return;
@@ -128,11 +210,34 @@ int main(void)
     insert(&tree, 35);
     insert(&tree, 72);
     insert(&tree, 48);
-    // inOrderTraversal(tree);
+
+    printf("\n\nBefore Rotation\n\n");
+
     printf("========== Tree view ==========\n");
     printTree(tree, INDENT_STEP);
     printf("===== In-Order Traversal ======\n");
     inOrderTraversal(tree);
+    printf("\nLeft rotate on 12\n");
+
+    leftRotate(&(tree -> left -> right));
+    assert(validateParents(tree));
+
+    printf("\nAfter Rotation\n\n");
+    printf("========== Tree view ==========\n");
+    printTree(tree, INDENT_STEP);
+    printf("===== In-Order Traversal ======\n");
+    inOrderTraversal(tree);
+
+    printf("\nRight rotate on 50\n");
+
+    rightRotate(&tree);
+    assert(validateParents(tree));
+
+    printf("========== Tree view ==========\n");
+    printTree(tree, INDENT_STEP);
+    printf("===== In-Order Traversal ======\n");
+    inOrderTraversal(tree);
+
 
     return 0;
 }
