@@ -10,8 +10,35 @@ typedef struct NODE
     struct NODE *left;
     struct NODE *right;
     struct NODE *parent;
+    int height;
 }
 NODE;
+
+void rightRotate(NODE **root);
+void leftRotate(NODE **root);
+void printTree(NODE *root, int indent);
+
+NODE **getPointerToNode(NODE **root, NODE *node)
+{
+    if(node -> parent == NULL)
+    {
+        return root;
+    }
+    else if(node -> parent -> left == node)
+    {
+        return &(node -> parent -> left);
+    }
+    else if(node -> parent -> right == node)
+    {
+        return &(node -> parent -> right);
+    }
+    else
+    {
+        assert(0);
+        return NULL;
+    }
+}
+
 
 NODE *newNode(int data, NODE *left, NODE *right, NODE *parent)
 {
@@ -20,10 +47,28 @@ NODE *newNode(int data, NODE *left, NODE *right, NODE *parent)
     node -> left = left;
     node -> right = right;
     node -> parent = parent;
+    node -> height = 0;
     return node;
 }
 
+int max(int a, int b)
+{
+    return (a > b) ? a : b;
+}
+
 int height(NODE *root)
+{
+    if(root == NULL)
+    {
+        return -1;
+    }
+    else
+    {
+        return root -> height;
+    }
+}
+
+int balanceFactor(NODE *root)
 {
     if(root == NULL)
     {
@@ -31,23 +76,70 @@ int height(NODE *root)
     }
     else
     {
-        int leftHeight = height(root -> left);
-        int rightHeight = height(root -> right);
-        int nodeHeight;
-        if(leftHeight > rightHeight)
-        {
-            nodeHeight = leftHeight + 1;
-        }
-        else
-        {
-            nodeHeight = rightHeight + 1;
-        }
-        return nodeHeight;
+        return height(root -> right) - height(root -> left);
     }
 }
 
+void updateHeightsUp(NODE *node)
+{
+    NODE *currentNode = node;
+    while(currentNode != NULL)
+    {
+        int leftHeight = height(currentNode -> left);
+        int rightHeight = height(currentNode -> right);
+        currentNode -> height = max(leftHeight, rightHeight) + 1;
+        
+        currentNode = currentNode -> parent;
+    }
+}
+
+/*
+void rebalanceUp(NODE **node)
+{
+    NODE **tempPtr = node;
+    while(*tempPtr != NULL)
+    {
+        int bf = balanceFactor(*tempPtr);
+        if(bf > 1) // Right-heavy violation
+        {
+            printf("\nFound violation at node with key %d\n", (*tempPtr) -> data);
+            printf("Balance factor: %d\n", bf);
+            if(balanceFactor((*tempPtr) -> right) > 0) // Right child is right heavy
+            {
+                // Left Rotate
+                leftRotate(tempPtr);
+            }
+            else // Right child is left-heavy
+            {
+                // Right-left Rotate
+                rightRotate(&((*tempPtr) -> right));
+                leftRotate(tempPtr);
+            }
+        }
+        else if(bf < -1) // Left-heavy violation
+        {
+            printf("\nFound violation at node with key %d\n", (*tempPtr) -> data);
+            printf("Balance factor: %d\n", bf);
+            if(balanceFactor((*tempPtr) -> left) < 0)
+            {
+                // Right Rotate
+                rightRotate(tempPtr);
+            }
+            else // Left child is right-heavy
+            {
+                // Left-right Rotate
+                leftRotate(&((*tempPtr) -> left));
+                rightRotate(tempPtr);
+            }
+        }
+        tempPtr = &((*tempPtr) -> parent);
+    }
+}
+*/
+
 void insert(NODE **root, int value)
 {
+    printf("\nINSERT %d\n", value);
     // Tree is empty
     if(*root == NULL)
     {
@@ -65,6 +157,7 @@ void insert(NODE **root, int value)
                 if(tempPtr -> left == NULL)
                 {
                     tempPtr -> left = newNode(value, NULL, NULL, tempPtr);
+                    tempPtr = tempPtr -> left;
                     break;
                 }
                 else
@@ -78,14 +171,66 @@ void insert(NODE **root, int value)
                 if(tempPtr -> right == NULL)
                 {
                     tempPtr -> right = newNode(value, NULL, NULL, tempPtr);
+                    tempPtr = tempPtr -> right;
                     break;
                 }
                 else
                 {
                     tempPtr = tempPtr -> right;
                 }
-            }
+            } 
         }
+
+        // Value inserted
+
+        // Propagate up, updating heights
+        updateHeightsUp(tempPtr);
+
+        // New node is inserted in place. Now, rebalance tree
+        while(tempPtr != NULL)
+        {
+            int bf = balanceFactor(tempPtr);
+            if(bf > 1) // Right heavy violation
+            {
+                printf("\n");
+                printTree(*root, INDENT_STEP);
+                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
+                if(balanceFactor(tempPtr -> right) > 0) // Right child is right heavy
+                {
+                    printf("Left rotate\n");
+                    leftRotate(getPointerToNode(root, tempPtr));
+                }
+                else // Right child is left heavy
+                {
+                    // Right-left rotate
+                    printf("Right-left rotate\n");
+                    rightRotate(getPointerToNode(root, tempPtr -> right));
+                    leftRotate(getPointerToNode(root, tempPtr));
+                }
+            }
+            else if(bf < -1) // Left heavy violation
+            {
+                printf("\n");
+                printTree(*root, INDENT_STEP);
+                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
+
+                if(balanceFactor(tempPtr -> left) < 0) // Left child is left heavy
+                {
+                    printf("Right rotate\n");
+                    rightRotate(getPointerToNode(root, tempPtr));
+                }
+                else // Left chold is right heavy
+                {
+                    // Left-right rotate
+                    printf("Left-right rotate\n");
+                    leftRotate(getPointerToNode(root, tempPtr -> left));
+                    rightRotate(getPointerToNode(root, tempPtr));
+                }
+            }
+            tempPtr = tempPtr -> parent;
+        }
+        
+        
     }
 }
 
@@ -119,6 +264,8 @@ void leftRotate(NODE **root)
             beta -> parent = x;
         x -> parent = y;
         (*root) -> parent = parentOfRoot;
+
+        updateHeightsUp(x);
 
     }
 }
@@ -154,6 +301,8 @@ void rightRotate(NODE **root)
     }
     y -> parent = x;
     (*root) -> parent = parentOfRoot;
+
+    updateHeightsUp(y);
 }
 
 void inOrderTraversal(NODE *root)
@@ -184,9 +333,14 @@ bool validateParents(NODE *root)
 // Recursive function to print tree sideways
 void printTree(NODE *root, int indent) 
 {
+
     if (root == NULL)
         return;
 
+    if(root -> parent == NULL)
+    {
+        printf("========== Tree view ==========\n");
+    }
     // Print right subtree first
     printTree(root->right, indent + INDENT_STEP);
 
@@ -199,45 +353,29 @@ void printTree(NODE *root, int indent)
     printTree(root->left, indent + INDENT_STEP);
 }
 
+void freeTree(NODE *root)
+{
+    if(root != NULL)
+    {
+        freeTree(root -> left);
+        freeTree(root -> right);
+        free(root);
+    }
+}
 
 int main(void)
 {
+    int keys[] = {12, 24, 14, 27, 35, 17, 19, 22};
     NODE *tree = NULL;
-    insert(&tree, 50);
-    insert(&tree, 10);
-    insert(&tree, 12);
-    insert(&tree, 9);
-    insert(&tree, 35);
-    insert(&tree, 72);
-    insert(&tree, 48);
-
-    printf("\n\nBefore Rotation\n\n");
-
-    printf("========== Tree view ==========\n");
-    printTree(tree, INDENT_STEP);
-    printf("===== In-Order Traversal ======\n");
-    inOrderTraversal(tree);
-    printf("\nLeft rotate on 12\n");
-
-    leftRotate(&(tree -> left -> right));
-    assert(validateParents(tree));
-
-    printf("\nAfter Rotation\n\n");
-    printf("========== Tree view ==========\n");
-    printTree(tree, INDENT_STEP);
+    for(int i = 0; i < 8; i++)
+    {
+        insert(&tree, keys[i]);
+        printTree(tree, INDENT_STEP);
+    }
+    
     printf("===== In-Order Traversal ======\n");
     inOrderTraversal(tree);
 
-    printf("\nRight rotate on 50\n");
-
-    rightRotate(&tree);
-    assert(validateParents(tree));
-
-    printf("========== Tree view ==========\n");
-    printTree(tree, INDENT_STEP);
-    printf("===== In-Order Traversal ======\n");
-    inOrderTraversal(tree);
-
-
+    freeTree(tree);
     return 0;
 }
