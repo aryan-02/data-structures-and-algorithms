@@ -4,6 +4,8 @@
 #include <assert.h>
 #define INDENT_STEP 4
 
+#define DEBUG 1
+
 typedef struct NODE
 {
     int data;
@@ -14,9 +16,17 @@ typedef struct NODE
 }
 NODE;
 
+// Function signatures
+int max(int a, int b);
 void rightRotate(NODE **root);
 void leftRotate(NODE **root);
 void printTree(NODE *root, int indent);
+bool validateParents(NODE *root);
+NODE **getPointerToNode(NODE **root, NODE *node);
+NODE *newNode(int data, NODE *left, NODE *right, NODE *parent);
+int height(NODE *root);
+void updateHeightsUp(NODE *node);
+int balanceFactor(NODE *root);
 
 NODE **getPointerToNode(NODE **root, NODE *node)
 {
@@ -34,6 +44,7 @@ NODE **getPointerToNode(NODE **root, NODE *node)
     }
     else
     {
+        // Impossible case, if parent-child pointers are consistent
         assert(0);
         return NULL;
     }
@@ -80,6 +91,25 @@ int balanceFactor(NODE *root)
     }
 }
 
+NODE *successor(NODE *root)
+{
+    if(root -> right == NULL)
+    {
+        return NULL;
+    }
+    else
+    {
+        // Successor is the smallest element in the right subtree
+        // Go as far down left as possible in the root -> right subtree
+        NODE *tempPtr = root -> right;
+        while(tempPtr -> left != NULL)
+        {
+            tempPtr = tempPtr -> left;
+        }
+        return tempPtr;
+    }
+}
+
 void updateHeightsUp(NODE *node)
 {
     NODE *currentNode = node;
@@ -93,49 +123,66 @@ void updateHeightsUp(NODE *node)
     }
 }
 
-/*
-void rebalanceUp(NODE **node)
+
+void rebalanceUp(NODE **root, NODE *node)
 {
-    NODE **tempPtr = node;
-    while(*tempPtr != NULL)
+    NODE *tempPtr = node;
+    while(tempPtr != NULL)
     {
-        int bf = balanceFactor(*tempPtr);
-        if(bf > 1) // Right-heavy violation
+        int bf = balanceFactor(tempPtr);
+        if(bf > 1) // Right heavy violation
         {
-            printf("\nFound violation at node with key %d\n", (*tempPtr) -> data);
-            printf("Balance factor: %d\n", bf);
-            if(balanceFactor((*tempPtr) -> right) > 0) // Right child is right heavy
+            if(DEBUG)
             {
-                // Left Rotate
-                leftRotate(tempPtr);
+                printf("\n");
+                printTree(*root, INDENT_STEP);
+                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
             }
-            else // Right child is left-heavy
+            
+            if(balanceFactor(tempPtr -> right) > 0) // Right child is right heavy
             {
-                // Right-left Rotate
-                rightRotate(&((*tempPtr) -> right));
-                leftRotate(tempPtr);
+                if(DEBUG)
+                    printf("Left rotate\n");
+                leftRotate(getPointerToNode(root, tempPtr));
+            }
+            else // Right child is left heavy
+            {
+                // Right-left rotate
+                if(DEBUG)
+                    printf("Right-left rotate\n");
+                rightRotate(getPointerToNode(root, tempPtr -> right));
+                leftRotate(getPointerToNode(root, tempPtr));
             }
         }
-        else if(bf < -1) // Left-heavy violation
+        else if(bf < -1) // Left heavy violation
         {
-            printf("\nFound violation at node with key %d\n", (*tempPtr) -> data);
-            printf("Balance factor: %d\n", bf);
-            if(balanceFactor((*tempPtr) -> left) < 0)
+            if(DEBUG)
             {
-                // Right Rotate
-                rightRotate(tempPtr);
+                printf("\n");
+                printTree(*root, INDENT_STEP);
+                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
             }
-            else // Left child is right-heavy
+            
+            if(balanceFactor(tempPtr -> left) < 0) // Left child is left heavy
             {
-                // Left-right Rotate
-                leftRotate(&((*tempPtr) -> left));
-                rightRotate(tempPtr);
+                if(DEBUG)
+                    printf("Right rotate\n");
+                rightRotate(getPointerToNode(root, tempPtr));
+            }
+            else // Left chold is right heavy
+            {
+                // Left-right rotate
+                if(DEBUG)
+                    printf("Left-right rotate\n");
+                leftRotate(getPointerToNode(root, tempPtr -> left));
+                rightRotate(getPointerToNode(root, tempPtr));
             }
         }
-        tempPtr = &((*tempPtr) -> parent);
+        tempPtr = tempPtr -> parent;
     }
+    assert(validateParents(*root));
 }
-*/
+
 
 void insert(NODE **root, int value)
 {
@@ -178,6 +225,11 @@ void insert(NODE **root, int value)
                 {
                     tempPtr = tempPtr -> right;
                 }
+            }
+            else
+            {
+                fprintf(stderr, "Duplicate value %d found. Not inserting.\n", value);
+                return;
             } 
         }
 
@@ -187,52 +239,97 @@ void insert(NODE **root, int value)
         updateHeightsUp(tempPtr);
 
         // New node is inserted in place. Now, rebalance tree
-        while(tempPtr != NULL)
-        {
-            int bf = balanceFactor(tempPtr);
-            if(bf > 1) // Right heavy violation
-            {
-                printf("\n");
-                printTree(*root, INDENT_STEP);
-                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
-                if(balanceFactor(tempPtr -> right) > 0) // Right child is right heavy
-                {
-                    printf("Left rotate\n");
-                    leftRotate(getPointerToNode(root, tempPtr));
-                }
-                else // Right child is left heavy
-                {
-                    // Right-left rotate
-                    printf("Right-left rotate\n");
-                    rightRotate(getPointerToNode(root, tempPtr -> right));
-                    leftRotate(getPointerToNode(root, tempPtr));
-                }
-            }
-            else if(bf < -1) // Left heavy violation
-            {
-                printf("\n");
-                printTree(*root, INDENT_STEP);
-                printf("\nViolation at %d, balance factor is %d\n", tempPtr -> data, bf);
-
-                if(balanceFactor(tempPtr -> left) < 0) // Left child is left heavy
-                {
-                    printf("Right rotate\n");
-                    rightRotate(getPointerToNode(root, tempPtr));
-                }
-                else // Left chold is right heavy
-                {
-                    // Left-right rotate
-                    printf("Left-right rotate\n");
-                    leftRotate(getPointerToNode(root, tempPtr -> left));
-                    rightRotate(getPointerToNode(root, tempPtr));
-                }
-            }
-            tempPtr = tempPtr -> parent;
-        }
-        
+        rebalanceUp(root, tempPtr);
         
     }
 }
+
+void delete(NODE **root, NODE *node)
+{
+    NODE **link = getPointerToNode(root, node);
+    NODE *parentOfDeletedChild = node -> parent;
+
+    if(node -> left == NULL && node -> right == NULL) // deleting leaf node
+    {
+        free(*link);
+        *link = NULL;
+        if(parentOfDeletedChild != NULL)
+        {
+            updateHeightsUp(parentOfDeletedChild);
+            rebalanceUp(root, parentOfDeletedChild);
+        }
+    }
+    else // deleting non-leaf node
+    {
+        if(node -> left == NULL || node -> right == NULL) // non leaf node but only one child
+        {
+            NODE *newBranch;
+            if(node -> right == NULL) // only has left child
+            {
+                newBranch = node -> left;
+            }
+            else // only has right child
+            {
+                newBranch = node -> right;
+            }
+            newBranch -> parent = node -> parent;
+            *link = newBranch;
+            free(node);
+            node = NULL;
+
+            if(parentOfDeletedChild != NULL)
+            {
+                updateHeightsUp(parentOfDeletedChild);
+                rebalanceUp(root, parentOfDeletedChild);
+            }
+        }
+        else // internal node with two children
+        {
+            NODE *s = successor(node);
+            NODE *successorsParent = s -> parent;
+            // successor can't have left child; it can only have a right child
+            NODE **successorLink = getPointerToNode(root, s);
+            if(s == node -> right) // Successor is the immediate right child
+            {
+                s -> parent = node -> parent;
+                s -> left = node -> left;
+                s -> left -> parent = s;
+                *link = s;
+                free(node);
+                updateHeightsUp(s);
+                rebalanceUp(root, s);
+            }
+            else // Successor is deeper in the right subtree
+            {
+                *successorLink = s -> right;
+                if(*successorLink != NULL)
+                {
+                    (*successorLink) -> parent = successorsParent;
+                }
+                
+
+                // Now replace the node to delete with successor
+                s -> parent = node -> parent;
+                s -> left = node -> left;
+                if(s -> left != NULL)
+                {
+                    s -> left -> parent = s;
+                }
+                s -> right = node -> right;
+                if(s -> right != NULL)
+                {
+                    s -> right -> parent = s;
+                }
+                free(*link);
+                *link = s;
+                updateHeightsUp(successorsParent);
+                rebalanceUp(root, successorsParent);
+            }
+            
+        }
+    }
+}
+
 
 /*
 
@@ -320,9 +417,16 @@ bool validateParents(NODE *root)
     if(root == NULL)
         return true;
     if(root -> left != NULL && root -> left -> parent != root)
+    {
+        printf("FAILED left AT node %p, value %d\n", root, root -> data);
         return false;
+    }
+        
     if(root -> right != NULL && root -> right -> parent != root)
+    {
+        printf("FAILED right AT node %p, value %d\n", root, root -> data);
         return false;
+    }
     
     if(! validateParents(root -> left) || ! validateParents(root -> right))
         return false;
@@ -363,19 +467,73 @@ void freeTree(NODE *root)
     }
 }
 
+NODE *search(NODE *root, int value)
+{
+    NODE *tempPtr = root;
+    while(tempPtr != NULL && tempPtr -> data != value)
+    {
+        if(value < tempPtr -> data)
+        {
+            tempPtr = tempPtr -> left;
+        }
+        else if(value > tempPtr -> data)
+        {
+            tempPtr = tempPtr -> right;
+        }
+    }
+    return tempPtr;
+}
+
 int main(void)
 {
-    int keys[] = {12, 24, 14, 27, 35, 17, 19, 22};
     NODE *tree = NULL;
-    for(int i = 0; i < 8; i++)
-    {
-        insert(&tree, keys[i]);
-        printTree(tree, INDENT_STEP);
-    }
     
-    printf("===== In-Order Traversal ======\n");
-    inOrderTraversal(tree);
+    printf("---------------- AVL TREE ----------------\n\n");
+    printf("List of commands:\ni K: insert number K in AVL Tree\ns K: search for number K in AVL Tree\nd: delete K if it exists\nq: quit\n\n");
+    char commandType = '\0';
+    while(1)
+    {
+        scanf(" %c", &commandType);
+        int key;
+        if(commandType == 'q')
+        {
+            break;
+        }
+        else if(commandType == 'i')
+        {
+            scanf("%d", &key);
+            insert(&tree, key);
+        }
+        else if(commandType == 's')
+        {
+            scanf("%d", &key);
+            NODE *searchResult = search(tree, key);
+            printf("%s\n", (searchResult != NULL) ? "FOUND" : "NOT FOUND");
+        }
+        else if(commandType == 'd')
+        {
+            scanf("%d", &key);
+            NODE *searchResult = search(tree, key);
+            if(searchResult == NULL)
+            {
+                printf("NOT FOUND -- Can't delete.\n");
+            }
+            else
+            {
+                delete(&tree, searchResult);
+            }
+        }
+        else
+        {
+            printf("Invalid command\n");
+        }
 
+        printTree(tree, INDENT_STEP);
+        assert(validateParents(tree));
+        
+    }
     freeTree(tree);
+
+
     return 0;
 }
