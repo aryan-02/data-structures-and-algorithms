@@ -31,6 +31,7 @@ bool validateParents(NODE *root);
 NODE **getPointerToNode(NODE **root, NODE *node);
 NODE *newNode(int data, NODE *left, NODE *right, NODE *parent);
 COLOR color(NODE *node);
+void fixRedBlackPropertyUp(NODE **root, NODE *node);
 
 COLOR color(NODE *node)
 {
@@ -111,6 +112,7 @@ void insert(NODE **root, int value)
     if(*root == NULL)
     {
         *root = newNode(value, NULL, NULL, NULL);
+        fixRedBlackPropertyUp(root, *root);
     }
     else
     {
@@ -154,12 +156,7 @@ void insert(NODE **root, int value)
         }
 
         // Value inserted
-
-        // Propagate up, updating heights
-        //updateHeightsUp(tempPtr);
-
-        // New node is inserted in place. Now, rebalance tree
-        //rebalanceUp(root, tempPtr);
+        fixRedBlackPropertyUp(root, tempPtr);
         
     }
 }
@@ -407,22 +404,77 @@ NODE *search(NODE *root, int value)
     return tempPtr;
 }
 
-void fixRedBlackProperty(NODE *node)
+void fixRedBlackPropertyUp(NODE **root, NODE *node)
 {
+    if(node -> parent == NULL)
+    {
+        node -> color = BLACK;
+    }
     if(color(node) == BLACK)
     {
-        return; // No problem
+        return;
     }
     if(color(node) == RED)
     {
-        if(color(node -> parent) == BLACK)
+        if(node -> parent == NULL)
         {
-            return; // No problem
+            // root node must be black
+            node -> color = BLACK;
+            return;
         }
-        else
+        else if(color(node -> parent) == RED)
         {
-            // node and its parent are both red
-            
+            if(node -> parent -> parent != NULL) // node has a grandparent
+            {
+                if(node -> parent == node -> parent -> parent -> left) // node's parent is a left child
+                {
+                    NODE *uncle = node -> parent -> parent -> right;
+                    if(color(uncle) == RED) // Uncle is red ==> Recolor
+                    {
+                        node -> parent -> color = BLACK;
+                        uncle -> color = BLACK;
+                        node -> parent -> parent -> color = RED;
+                        fixRedBlackPropertyUp(root, node -> parent -> parent);
+                    }
+                    else // Uncle is black
+                    {
+                        if(node == node -> parent -> right) // node is a right child
+                        {
+                            node = node -> parent;
+                            leftRotate(getPointerToNode(root, node));
+                        }
+                        node -> parent -> color = BLACK;
+                        node -> parent -> parent -> color = RED;
+                        rightRotate(getPointerToNode(root, node -> parent -> parent));
+                    }
+                }
+                else if(node -> parent == node -> parent -> parent -> right) // node's parent is a right child
+                {
+                    NODE *uncle = node -> parent -> parent -> left;
+                    if(color(uncle) == RED) // Uncle is red ==> Recolor
+                    {
+                        // Make parent and uncle black, grandparent red
+                        node -> parent -> color = BLACK;
+                        uncle -> color = BLACK;
+                        node -> parent -> parent -> color = RED;
+                        fixRedBlackPropertyUp(root, node -> parent -> parent);
+                        (*root) -> color = BLACK;
+                    }
+                    else // Uncle is black
+                    {
+                        if(node == node -> parent -> left) // node is a left child
+                        {
+                            node = node -> parent;
+                            rightRotate(getPointerToNode(root, node));
+                        }
+                        node -> parent -> color = BLACK;
+                        node -> parent -> parent -> color = RED;
+                        leftRotate(getPointerToNode(root, node -> parent -> parent));
+                        (*root) -> color = BLACK;
+                    }
+                    
+                }
+            }
         }
     }
 
